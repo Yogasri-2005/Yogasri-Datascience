@@ -1,0 +1,155 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+#load dataset
+df=pd.read_csv("diabetes .csv")
+#diplay frist new rows
+df.head()
+#shape of the dataset
+print("Shape:", df.shape)
+#columns name
+print("Columns:", df.columns.tolist())
+#data types and non-null values
+df.info()
+# Summary statistics for numeric features
+df.describe()
+# Check for missing values
+print(df.isnull().sum())
+# Check for duplicates
+print("Duplicate rows:", df.duplicated().sum())
+#visualize a few features
+import seaborn as sns
+import matplotlib.pyplot as plt
+sns.set(style="whitegrid")
+# Distribution of final grades
+sns.histplot(df['Glucose'], kde=True, color='orange')
+plt.title('Distribution of Glucose Levels')
+plt.xlabel('Glucose')
+plt.ylabel('Count')
+plt.tight_layout()
+plt.show()
+
+sns.boxplot(x='Outcome', y='BMI', data=df, palette='Set1')
+plt.title('BMI vs Diabetes Outcome')
+plt.xlabel('Diabetes (0 = No, 1 = Yes)')
+plt.ylabel('BMI')
+plt.tight_layout()
+plt.show()
+
+sns.boxplot(x='Outcome', y='Age', data=df, palette='Set2')
+plt.title('Age vs Diabetes Outcome')
+plt.xlabel('Diabetes (0 = No, 1 = Yes)')
+plt.ylabel('Age')
+plt.tight_layout()
+plt.show()
+
+corr = df.corr()
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True)
+plt.title('Correlation Heatmap of Features')
+plt.tight_layout()
+plt.show()
+
+target = 'Glucose'
+features = df.columns.drop(target)
+print("Features:", features)
+
+categorical_cols = df.select_dtypes(include=['object']).columns
+print("Categorical Columns:", categorical_cols.tolist())
+# Perform one-hot encoding
+df_encoded = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+
+print(df_encoded.head())
+
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df_encoded.drop('Glucose', axis=1))
+y = df_encoded['Glucose']
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)  
+
+print("MSE:", mean_squared_error(y_test, y_pred))
+print("R² Score:", r2_score(y_test,y_pred))
+# Sample input (replace values with any other valid values from the original dataset)
+new_input = pd.DataFrame([{
+    'Pregnancies': 2,
+    'Glucose': 120,
+    'BloodPressure': 70,
+    'SkinThickness': 20,
+    'Insulin': 85,
+    'BMI': 30.5,
+    'DiabetesPedigreeFunction': 0.6,
+    'Age': 40
+}])
+# Convert to DataFrame
+#new_df = pd.DataFrame([new_input]) # Removing extra brackets to avoid 3D structure
+new_df = new_input # new_input is already a DataFrame
+
+# Combine with original df to match columns
+df_temp = pd.concat([df.drop('Glucose', axis=1), new_df], ignore_index=True)
+# One-hot encode
+df_temp_encoded = pd.get_dummies(df_temp, drop_first=True)
+# Match the encoded feature order
+df_temp_encoded = df_temp_encoded.reindex(columns=df_encoded.drop('Glucose', axis=1).columns, fill_value=0)
+# Scale (if you used scaling)
+new_input_scaled = scaler.transform(df_temp_encoded.tail(1))
+
+predicted_grade = model.predict(new_input_scaled)
+print("🎓 Predicted Final Grade (Glucose):", round(predicted_grade[0], 2))
+Deployment-buliding an interactive app
+!pip install gradio
+
+def predict_diabetes(input_data):
+#create a predicition function
+import gradio as gr 
+# Prediction function
+def predict_diabetes(Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin,
+                     BMI, DiabetesPedigreeFunction, Age
+    input_data = {
+        'Pregnancies': Pregnancies,
+        'Glucose': Glucose,
+        'BloodPressure': BloodPressure,
+        'SkinThickness': SkinThickness,
+        'Insulin': Insulin,
+        'BMI': BMI,
+        'DiabetesPedigreeFunction': DiabetesPedigreeFunction,
+        'Age': Age
+    }
+    input_df = pd.DataFrame([input_data])
+    input_scaled = scaler.transform(input_df)
+    prediction = model.predict(input_scaled)[0]
+    probability = model.predict_proba(input_scaled)[0][1]
+    result = "Diabetic" if prediction == 1 else "Not Diabetic"
+    return f"{result} (Probability: {round(probability, 2)})"
+# Gradio Interface
+iface = gr.Interface(
+    fn=predict_diabetes,
+    inputs=[
+        gr.Number(label="Pregnancies"),
+        gr.Number(label="Glucose"),
+        gr.Number(label="BloodPressure"),
+        gr.Number(label="SkinThickness"),
+        gr.Number(label="Insulin"),
+        gr.Number(label="BMI"),
+        gr.Number(label="Diabetes Pedigree Function"),
+        gr.Number(label="Age")
+    ],
+    outputs="text",
+    title="Diabetes Predictor",
+    description="Enter patient health data to predict diabetes risk using a trained Random Forest model."
+)
+
+# Launch the app
+iface.launch()
